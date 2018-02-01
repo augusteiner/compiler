@@ -2,13 +2,15 @@
 
 #include <llvm/Analysis/Passes.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-#include <llvm/PassManager.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <string>
 #include "location.hh"
+
+static llvm::LLVMContext globalContext;
 
 class driver
 {
@@ -48,7 +50,7 @@ class driver
       return *m_module;
     }
 
-    inline llvm::FunctionPassManager &fpm()
+    inline llvm::legacy::FunctionPassManager &fpm()
     {
       return m_fpm;
     }
@@ -71,7 +73,7 @@ class driver
   private:
     std::string m_filename;
     llvm::Module *m_module;
-    llvm::FunctionPassManager m_fpm;
+    llvm::legacy::FunctionPassManager m_fpm;
     llvm::ExecutionEngine *m_execution_engine;
     llvm::IRBuilder<> m_builder;
     std::map<std::string,llvm::Value*> m_named_values;

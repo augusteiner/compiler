@@ -1,13 +1,13 @@
 #include "ast.hpp"
 #include "error.hpp"
-#include <llvm/Analysis/Verifier.h>
+#include <llvm/IR/Verifier.h>
 #include <iostream>
 #include <map>
 #include <vector>
 
 llvm::Value *number_expr_ast::codegen(driver &context)
 {
-  return llvm::ConstantFP::get(llvm::getGlobalContext(), llvm::APFloat(m_val));
+  return llvm::ConstantFP::get(globalContext, llvm::APFloat(m_val));
 }
 
 llvm::Value *variable_expr_ast::codegen(driver &context)
@@ -32,7 +32,7 @@ llvm::Value *binary_expr_ast::codegen(driver &context)
       lhs = context.builder().CreateFCmpULT(lhs, rhs, "cmptmp");
 
       // convert bool 0/1 to double 0.0 or 1.0
-      return context.builder().CreateUIToFP(lhs, llvm::Type::getDoubleTy(llvm::getGlobalContext()), "booltmp");
+      return context.builder().CreateUIToFP(lhs, llvm::Type::getDoubleTy(globalContext), "booltmp");
     default: return error_value("invalid binary operator");
   }
 }
@@ -66,15 +66,15 @@ llvm::Value *call_expr_ast::codegen(driver &context)
 llvm::Function *prototype_ast::codegen(driver &context)
 {
   // make the function type: double(double, double) etc.
-  std::vector<llvm::Type*> doubles(m_args.size(), llvm::Type::getDoubleTy(llvm::getGlobalContext()));
+  std::vector<llvm::Type*> doubles(m_args.size(), llvm::Type::getDoubleTy(globalContext));
 
-  llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getDoubleTy(llvm::getGlobalContext()), doubles, false);
+  llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getDoubleTy(globalContext), doubles, false);
 
   llvm::Function *f = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, m_name, &context.module());
 
   // if f conflicted, there was already something named m_name. if it has a
   // body, don't allow redefinition or reextern
-  if(f->getName() != m_name)
+  if (!f->getName().equals(m_name))
   {
     // delete the one we just made and get the existing one
     f->eraseFromParent();
@@ -103,7 +103,7 @@ llvm::Function *prototype_ast::codegen(driver &context)
     arg_iter->setName(m_args[index]);
 
     // add arguments to variable symbol table
-    context.named_values()[m_args[index]] = arg_iter;
+    context.named_values()[m_args[index]] = &(*arg_iter);
   }
 
   return f;
@@ -117,7 +117,7 @@ llvm::Function *function_ast::codegen(driver &context)
   if(f == 0) return 0;
 
   // create a new basic block to start insertion into
-  llvm::BasicBlock *bb = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", f);
+  llvm::BasicBlock *bb = llvm::BasicBlock::Create(globalContext, "entry", f);
   context.builder().SetInsertPoint(bb);
 
   if(llvm::Value *return_value = m_body->codegen(context))
@@ -147,16 +147,16 @@ llvm::Value *if_expr_ast::codegen(driver &context)
   // convert condition to a bool by comparing equal to 0
   cond_value =
     context.builder().CreateFCmpONE(cond_value,
-                                    llvm::ConstantFP::get(llvm::getGlobalContext(), llvm::APFloat(0.0)),
+                                    llvm::ConstantFP::get(globalContext, llvm::APFloat(0.0)),
                                     "ifcond");
 
   llvm::Function *fun = context.builder().GetInsertBlock()->getParent();
 
   // create blocks for the then and else cases. insert the "then" block at the
   // end of the function
-  llvm::BasicBlock *then_bb  = llvm::BasicBlock::Create(llvm::getGlobalContext(), "then", fun);
-  llvm::BasicBlock *else_bb  = llvm::BasicBlock::Create(llvm::getGlobalContext(), "else", fun);
-  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(llvm::getGlobalContext(), "ifcont", fun);
+  llvm::BasicBlock *then_bb  = llvm::BasicBlock::Create(globalContext, "then", fun);
+  llvm::BasicBlock *else_bb  = llvm::BasicBlock::Create(globalContext, "else", fun);
+  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(globalContext, "ifcont", fun);
 
   context.builder().CreateCondBr(cond_value, then_bb, else_bb);
 
@@ -186,7 +186,7 @@ llvm::Value *if_expr_ast::codegen(driver &context)
   // emit merge block
   fun->getBasicBlockList().push_back(merge_bb);
   context.builder().SetInsertPoint(merge_bb);
-  llvm::PHINode *phi_node = context.builder().CreatePHI(llvm::Type::getDoubleTy(llvm::getGlobalContext()), 2, "iftmp");
+  llvm::PHINode *phi_node = context.builder().CreatePHI(llvm::Type::getDoubleTy(globalContext), 2, "iftmp");
 
   phi_node->addIncoming(then_value, then_bb);
   phi_node->addIncoming(else_value, else_bb);
@@ -203,7 +203,7 @@ llvm::Value *for_expr_ast::codegen(driver &context)
   // make the new basic block for the loop header, inserting after current block
   llvm::Function *f = context.builder().GetInsertBlock()->getParent();
   llvm::BasicBlock *preheader_bb = context.builder().GetInsertBlock();
-  llvm::BasicBlock *loop_bb = llvm::BasicBlock::Create(llvm::getGlobalContext(), "loop", f);
+  llvm::BasicBlock *loop_bb = llvm::BasicBlock::Create(globalContext, "loop", f);
 
   // insert an explicit fall through from the current block to the loop_bb
   context.builder().CreateBr(loop_bb);
@@ -212,7 +212,7 @@ llvm::Value *for_expr_ast::codegen(driver &context)
   context.builder().SetInsertPoint(loop_bb);
 
   // start with the PHI node with an entry for start
-  llvm::PHINode *variable = context.builder().CreatePHI(llvm::Type::getDoubleTy(llvm::getGlobalContext()), 2, m_variable_name.c_str());
+  llvm::PHINode *variable = context.builder().CreatePHI(llvm::Type::getDoubleTy(globalContext), 2, m_variable_name.c_str());
   variable->addIncoming(start_value, preheader_bb);
 
   // within the loop, the variableis defined equal to the PHI node. if it
@@ -238,7 +238,7 @@ llvm::Value *for_expr_ast::codegen(driver &context)
   else
   {
     // if not specified, use 1.0
-    step_value = llvm::ConstantFP::get(llvm::getGlobalContext(), llvm::APFloat(1.0));
+    step_value = llvm::ConstantFP::get(globalContext, llvm::APFloat(1.0));
   }
 
   llvm::Value *next_variable = context.builder().CreateFAdd(variable, step_value, "nextvar");
@@ -250,12 +250,12 @@ llvm::Value *for_expr_ast::codegen(driver &context)
   // convert condition to a bool by comparing equal to 0.0
   end_condition =
     context.builder().CreateFCmpONE(end_condition,
-                          llvm::ConstantFP::get(llvm::getGlobalContext(), llvm::APFloat(0.0)),
+                          llvm::ConstantFP::get(globalContext, llvm::APFloat(0.0)),
                           "loopcond");
 
   // create the "after loop" block and insert it
   llvm::BasicBlock *loop_end_bb = context.builder().GetInsertBlock();
-  llvm::BasicBlock *after_bb = llvm::BasicBlock::Create(llvm::getGlobalContext(), "afterloop", f);
+  llvm::BasicBlock *after_bb = llvm::BasicBlock::Create(globalContext, "afterloop", f);
 
   // insert the conditional branch into the end of loop_end_bb
   context.builder().CreateCondBr(end_condition, loop_bb, after_bb);
@@ -277,7 +277,7 @@ llvm::Value *for_expr_ast::codegen(driver &context)
   }
 
   // for expr always returns 0.0
-  return llvm::Constant::getNullValue(llvm::Type::getDoubleTy(llvm::getGlobalContext()));
+  return llvm::Constant::getNullValue(llvm::Type::getDoubleTy(globalContext));
 }
 
 extern "C" double putchard(double x)
