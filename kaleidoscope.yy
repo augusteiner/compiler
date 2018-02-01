@@ -54,9 +54,11 @@ class driver;
 %type <expr_ast*>                expr
 %type <binary_expr_ast*>         arithexpr
 %type <std::vector<std::string>> parameter_list
+%type <std::vector<expr_ast*>>   call_args_list
 %type <prototype_ast*>           prototype
 %type <function_ast*>            extern
 %type <function_ast*>            definition
+%type <call_expr_ast *>          callexpr
 
 %left PLUS MINUS
 %left MULTIPLIES DIVIDES
@@ -85,6 +87,7 @@ expr:
 | numberexpr     { $$ = $1; }
 | parenexpr      { $$ = $1; }
 | arithexpr      { $$ = $1; }
+| callexpr       { $$ = $1; }
 
 parenexpr: "(" expr ")" { $$ = $2; }
 
@@ -101,6 +104,12 @@ definition: "def" prototype expr { $$ = new function_ast($2, $3); }
 extern: "extern" prototype { $$ = new function_ast($2, 0); }
 
 prototype: "identifier" "(" parameter_list ")" { $$ = new prototype_ast($1, $3); }
+
+callexpr: "identifier" "(" call_args_list ")" { $$ = new call_expr_ast($1, $3); }
+
+call_args_list:
+  expr call_args_list         { $2.push_back($1); $$ = $2; }
+|                             { $$ = std::vector<expr_ast*>(); }
 
 parameter_list:
   "identifier" parameter_list { $2.push_back($1); $$ = $2; }
