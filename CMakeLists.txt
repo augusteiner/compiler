@@ -6,8 +6,8 @@ find_package(FLEX REQUIRED)
 
 set(K_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
-flex_target(lexer kaleidoscope.ll "${K_BINARY_DIR}/kaleidoscope.ll.cpp"
-        DEFINES_FILE "${K_BINARY_DIR}/kaleidoscope.ll.hpp")
+flex_target(lexer kaleidoscope.l "${K_BINARY_DIR}/kaleidoscope.l.cpp"
+        DEFINES_FILE "${K_BINARY_DIR}/kaleidoscope.l.hpp")
 
 bison_target(parser kaleidoscope.yy "${K_BINARY_DIR}/kaleidoscope.yy.cpp")
 

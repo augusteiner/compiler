@@ -60,7 +60,7 @@ void driver::scan_begin()
     exit(EXIT_FAILURE);
   }
 }
-     
+
 void driver::scan_end()
 {
   fclose(yyin);

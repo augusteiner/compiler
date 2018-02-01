@@ -92,12 +92,12 @@ expr:
 parenexpr: "(" expr ")" { $$ = $2; }
 
 arithexpr:
-  expr "+" expr { $$ = new binary_expr_ast('+', $1, $3); }
-| expr "-" expr { $$ = new binary_expr_ast('-', $1, $3); }
-| expr "*" expr { $$ = new binary_expr_ast('*', $1, $3); }
-| expr "/" expr { $$ = new binary_expr_ast('/', $1, $3); }
-| "+" expr %prec UNARY_PLUS  {std::cout << "found arithexpr" << std::endl;}
-| "-" expr %prec UNARY_MINUS {std::cout << "found arithexpr" << std::endl;}
+  expr "+" expr              { $$ = new binary_expr_ast('+', $1, $3); }
+| expr "-" expr              { $$ = new binary_expr_ast('-', $1, $3); }
+| expr "*" expr              { $$ = new binary_expr_ast('*', $1, $3); }
+| expr "/" expr              { $$ = new binary_expr_ast('/', $1, $3); }
+| "+" expr %prec UNARY_PLUS  { }
+| "-" expr %prec UNARY_MINUS { }
 
 definition: "def" prototype expr { $$ = new function_ast($2, $3); }
 
